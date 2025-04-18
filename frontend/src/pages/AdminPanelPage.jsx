@@ -44,7 +44,18 @@ export default function AdminPanelPage() {
 
                 {message && <p style={{ color: message.startsWith('✅') ? 'green' : 'red' }}>{message}</p>}
 
-                <table border="1" cellPadding={6} style={{ width: '100%', marginTop: 20 }}>
+                <div style={{ margin: '20px 0' }}>
+                    <h3>🔗 Швидка навігація</h3>
+                    <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
+                        <li><a href="/admin/users" style={{ display: 'block', margin: '8px 0' }}>👥 Переглянути користувачів</a></li>
+                        <li><a href="/admin/create-user" style={{ display: 'block', margin: '8px 0' }}>➕ Створити користувача</a></li>
+                        <li><a href="/admin/appointments/create" style={{ display: 'block', margin: '8px 0' }}>🗓 Створити прийом</a></li>
+                        <li><a href="/admin/appointments" style={{ display: 'block', margin: '8px 0' }}>📅 Переглянути всі прийоми</a></li>
+                    </ul>
+                </div>
+
+                <h3>👥 Користувачі та ролі</h3>
+                <table border="1" cellPadding={6} style={{ width: '100%', marginTop: 10 }}>
                     <thead>
                     <tr>
                         <th>ID</th>

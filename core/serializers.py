@@ -1,7 +1,5 @@
-
 from rest_framework import serializers
 from .models import User, PatientProfile, DoctorProfile, Appointment, Treatment
-
 
 class PatientProfileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,6 +8,8 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
+    photo = serializers.ImageField(required=False, allow_null=True)
+
     class Meta:
         model = DoctorProfile
         exclude = ['user']
