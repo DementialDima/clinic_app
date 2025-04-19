@@ -8,6 +8,7 @@ export default function ProfilePage() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
+    const [photo, setPhoto] = useState(null);
 
     useEffect(() => {
         axios.get('/auth/users/me/')
@@ -38,6 +39,26 @@ export default function ProfilePage() {
             });
     };
 
+    const handleUploadPhoto = async (e) => {
+        e.preventDefault();
+        if (!photo) return;
+
+        const formData = new FormData();
+        formData.append('photo', photo);
+
+        try {
+            await axios.put('/api/doctors/profile/photo/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            alert('📸 Фото успішно завантажено!');
+            window.location.reload();
+        } catch (err) {
+            alert('❌ Помилка при завантаженні фото');
+        }
+    };
+
     if (!user) return <p>Завантаження профілю...</p>;
 
     return (
@@ -47,9 +68,73 @@ export default function ProfilePage() {
                 <h2>Мій профіль</h2>
                 <ul>
                     <li><strong>Ім’я користувача:</strong> {user.username}</li>
-                    <li><strong>Email:</strong> {user.email || '—'}</li>
-                    <li><strong>Ім’я:</strong> {user.first_name || '—'}</li>
-                    <li><strong>Прізвище:</strong> {user.last_name || '—'}</li>
+
+                    {/* 👨‍⚕️ Лікар */}
+                    {user.role === 'DOCTOR' && user.doctor_profile && (
+                        <>
+                            <li><strong>Ім’я:</strong> {user.doctor_profile.first_name}</li>
+                            <li><strong>Прізвище:</strong> {user.doctor_profile.last_name}</li>
+                            <li><strong>Спеціалізація:</strong> {user.doctor_profile.specialization}</li>
+                            <li><strong>Стаж:</strong> {user.doctor_profile.experience_years} років</li>
+                            <li><strong>Номер ліцензії:</strong> {user.doctor_profile.license_number}</li>
+                            <li><strong>Освіта:</strong> {user.doctor_profile.education}</li>
+                            <li><strong>Категорія:</strong> {user.doctor_profile.category}</li>
+                            <li><strong>Телефон:</strong> {user.doctor_profile.phone_number}</li>
+                            <li><strong>Адреса:</strong> {user.doctor_profile.address}</li>
+                            <li><strong>Email:</strong> {user.email || '—'}</li>
+
+                            {/* Фото */}
+                            {user.doctor_profile.photo && (
+                                <li>
+                                    <strong>Фото:</strong><br />
+                                    <img
+                                        src={`http://localhost:8000${user.doctor_profile.photo}`}
+                                        alt="Фото лікаря"
+                                        style={{ width: 150, height: 'auto', marginTop: 10 }}
+                                    />
+                                </li>
+                            )}
+
+                            {/* Форма завантаження фото */}
+                            <li>
+                                <form onSubmit={handleUploadPhoto}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => setPhoto(e.target.files[0])}
+                                        required
+                                    />
+                                    <button type="submit">📤 Завантажити фото</button>
+                                </form>
+                            </li>
+                        </>
+                    )}
+
+                    {/* 🧑‍⚕️ Пацієнт */}
+                    {user.role === 'PATIENT' && user.patient_profile && (
+                        <>
+                            <li><strong>Ім’я:</strong> {user.patient_profile.first_name}</li>
+                            <li><strong>Прізвище:</strong> {user.patient_profile.last_name}</li>
+                            <li><strong>По батькові:</strong> {user.patient_profile.middle_name || '—'}</li>
+                            <li><strong>Дата народження:</strong> {user.patient_profile.birth_date}</li>
+                            <li><strong>Стать:</strong> {user.patient_profile.gender}</li>
+                            <li><strong>Номер телефону:</strong> {user.patient_profile.phone_number}</li>
+                            <li><strong>Адреса:</strong> {user.patient_profile.address}</li>
+                            <li><strong>ІНН:</strong> {user.patient_profile.inn}</li>
+                            <li><strong>Медична картка №:</strong> {user.patient_profile.medical_card_number}</li>
+                            <li><strong>Email:</strong> {user.email || '—'}</li>
+                        </>
+                    )}
+
+                    {/* 🧑‍💼 Адміністратор */}
+                    {user.role === 'ADMIN' && (
+                        <>
+                            <li><strong>Ім’я:</strong> {user.first_name || '—'}</li>
+                            <li><strong>Прізвище:</strong> {user.last_name || '—'}</li>
+                            <li><strong>Email:</strong> {user.email || '—'}</li>
+                        </>
+                    )}
+
                     <li><strong>Роль:</strong> {user.role}</li>
                 </ul>
 

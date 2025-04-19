@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
+from django.conf import settings
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -50,13 +50,11 @@ class DoctorProfile(models.Model):
     phone_number = models.CharField(max_length=20)
     email = models.EmailField()
     address = models.TextField()
+    photo = models.ImageField(upload_to='doctor_photos/', null=True, blank=True)
 
     def __str__(self):
         return f"Лікар {self.last_name} {self.first_name} ({self.specialization})"
 
-
-from django.db import models
-from django.conf import settings
 
 class Appointment(models.Model):
     STATUS_CHOICES = [
@@ -100,4 +98,3 @@ class Treatment(models.Model):
 
     def __str__(self):
         return f"Лікування для прийому #{self.appointment.id}"
-
