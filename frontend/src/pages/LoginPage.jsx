@@ -11,12 +11,16 @@ export default function LoginPage() {
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
+            // Авторизація
             const res = await axios.post('/auth/jwt/create/', { username, password });
             localStorage.setItem('access', res.data.access);
             localStorage.setItem('refresh', res.data.refresh);
 
+            // Отримання профілю користувача
             const me = await axios.get('/auth/users/me/');
             localStorage.setItem('role', me.data.role);
+            localStorage.setItem('user', JSON.stringify(me.data)); // ⬅️ ВАЖЛИВО
+
             navigate('/appointments');
         } catch (err) {
             alert('Помилка логіну!');

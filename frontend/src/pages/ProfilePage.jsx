@@ -9,10 +9,19 @@ export default function ProfilePage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [message, setMessage] = useState('');
     const [photo, setPhoto] = useState(null);
+    const [photoUrl, setPhotoUrl] = useState('');
 
     useEffect(() => {
         axios.get('/auth/users/me/')
-            .then(res => setUser(res.data))
+            .then(res => {
+                setUser(res.data);
+                const doctorPhoto = res.data.doctor_profile?.photo;
+                if (res.data.role === 'DOCTOR' && doctorPhoto) {
+                    const isAbsolute = doctorPhoto.startsWith('http://') || doctorPhoto.startsWith('https://');
+                    setPhotoUrl(isAbsolute ? doctorPhoto : `http://localhost:8000${doctorPhoto}`);
+                }
+            })
+
             .catch(err => console.error(err));
     }, []);
 
@@ -52,8 +61,8 @@ export default function ProfilePage() {
                     'Content-Type': 'multipart/form-data',
                 },
             });
+            setPhotoUrl(URL.createObjectURL(photo));
             alert('📸 Фото успішно завантажено!');
-            window.location.reload();
         } catch (err) {
             alert('❌ Помилка при завантаженні фото');
         }
@@ -69,7 +78,6 @@ export default function ProfilePage() {
                 <ul>
                     <li><strong>Ім’я користувача:</strong> {user.username}</li>
 
-                    {/* 👨‍⚕️ Лікар */}
                     {user.role === 'DOCTOR' && user.doctor_profile && (
                         <>
                             <li><strong>Ім’я:</strong> {user.doctor_profile.first_name}</li>
@@ -83,19 +91,17 @@ export default function ProfilePage() {
                             <li><strong>Адреса:</strong> {user.doctor_profile.address}</li>
                             <li><strong>Email:</strong> {user.email || '—'}</li>
 
-                            {/* Фото */}
-                            {user.doctor_profile.photo && (
+                            {photoUrl && (
                                 <li>
                                     <strong>Фото:</strong><br />
                                     <img
-                                        src={`http://localhost:8000${user.doctor_profile.photo}`}
+                                        src={photoUrl}
                                         alt="Фото лікаря"
                                         style={{ width: 150, height: 'auto', marginTop: 10 }}
                                     />
                                 </li>
                             )}
 
-                            {/* Форма завантаження фото */}
                             <li>
                                 <form onSubmit={handleUploadPhoto}>
                                     <input
@@ -110,7 +116,6 @@ export default function ProfilePage() {
                         </>
                     )}
 
-                    {/* 🧑‍⚕️ Пацієнт */}
                     {user.role === 'PATIENT' && user.patient_profile && (
                         <>
                             <li><strong>Ім’я:</strong> {user.patient_profile.first_name}</li>
@@ -126,7 +131,6 @@ export default function ProfilePage() {
                         </>
                     )}
 
-                    {/* 🧑‍💼 Адміністратор */}
                     {user.role === 'ADMIN' && (
                         <>
                             <li><strong>Ім’я:</strong> {user.first_name || '—'}</li>

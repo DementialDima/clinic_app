@@ -46,7 +46,7 @@ class DoctorProfile(models.Model):
     license_number = models.CharField(max_length=50)
     license_issued = models.DateField()
     education = models.CharField(max_length=255)
-    category = models.CharField(max_length=100)  # Наприклад: вища, перша, друга
+    category = models.CharField(max_length=100)
     phone_number = models.CharField(max_length=20)
     email = models.EmailField()
     address = models.TextField()
@@ -76,6 +76,7 @@ class Appointment(models.Model):
         limit_choices_to={'role': 'DOCTOR'}
     )
     scheduled_time = models.DateTimeField()
+    end_time = models.DateTimeField()
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PLANNED')
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,62 +1,24 @@
 from rest_framework import serializers
 from .models import User, PatientProfile, DoctorProfile, Appointment, Treatment
+from django.utils.dateparse import parse_datetime
+from django.utils.timezone import make_aware
+
 
 class PatientProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientProfile
-        exclude = ['user']
+        fields = '__all__'
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
-    photo = serializers.ImageField(required=False, allow_null=True)
-
     class Meta:
         model = DoctorProfile
-        exclude = ['user']
-
-
-class AppointmentSerializer(serializers.ModelSerializer):
-    patient = serializers.SerializerMethodField()
-    doctor = serializers.SerializerMethodField()
-    treatment = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Appointment
-        fields = '__all__'
-
-    def get_patient(self, obj):
-        return {
-            "id": obj.patient.id,
-            "username": obj.patient.username,
-            "first_name": obj.patient.patient_profile.first_name if hasattr(obj.patient, 'patient_profile') else '',
-            "last_name": obj.patient.patient_profile.last_name if hasattr(obj.patient, 'patient_profile') else '',
-            "role": obj.patient.role
-        }
-
-    def get_doctor(self, obj):
-        return {
-            "id": obj.doctor.id,
-            "username": obj.doctor.username,
-            "first_name": obj.doctor.doctor_profile.first_name if hasattr(obj.doctor, 'doctor_profile') else '',
-            "last_name": obj.doctor.doctor_profile.last_name if hasattr(obj.doctor, 'doctor_profile') else '',
-            "role": obj.doctor.role
-        }
-
-    def get_treatment(self, obj):
-        if hasattr(obj, 'treatment'):
-            return TreatmentSerializer(obj.treatment).data
-        return None
-
-
-class TreatmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Treatment
         fields = '__all__'
 
 
 class UserSerializer(serializers.ModelSerializer):
-    patient_profile = PatientProfileSerializer(required=False)
-    doctor_profile = DoctorProfileSerializer(required=False)
+    patient_profile = PatientProfileSerializer(required=False, read_only=True)
+    doctor_profile = DoctorProfileSerializer(required=False, read_only=True)
 
     class Meta:
         model = User
@@ -108,3 +70,42 @@ class UserSerializer(serializers.ModelSerializer):
             profile.save()
 
         return instance
+
+
+class AppointmentSerializer(serializers.ModelSerializer):
+    patient = UserSerializer(read_only=True)
+    doctor = UserSerializer(read_only=True)
+    treatment = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Appointment
+        fields = '__all__'
+
+    def get_treatment(self, obj):
+        if hasattr(obj, 'treatment'):
+            return TreatmentSerializer(obj.treatment).data
+        return None
+
+    def validate(self, data):
+        doctor = data.get('doctor')
+        start = data.get('scheduled_time')
+        end = data.get('end_time')
+
+        if doctor and start and end:
+            overlaps = Appointment.objects.filter(
+                doctor=doctor,
+                scheduled_time__lt=end,
+                end_time__gt=start
+            )
+            if self.instance:
+                overlaps = overlaps.exclude(id=self.instance.id)
+            if overlaps.exists():
+                raise serializers.ValidationError("У лікаря вже є прийом у цей час.")
+
+        return data
+
+
+class TreatmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Treatment
+        fields = '__all__'

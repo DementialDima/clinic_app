@@ -1,7 +1,14 @@
 {
   "dependencies": {
+    "@fullcalendar/bootstrap5": "^6.1.17",
+    "@fullcalendar/core": "^6.1.17",
+    "@fullcalendar/daygrid": "^6.1.17",
+    "@fullcalendar/interaction": "^6.1.17",
+    "@fullcalendar/react": "^6.1.17",
+    "@fullcalendar/timegrid": "^6.1.17",
     "date-fns": "^4.1.0",
     "react-big-calendar": "^1.18.0",
+    "react-select": "^5.10.1",
     "recharts": "^2.15.2"
   }
 }

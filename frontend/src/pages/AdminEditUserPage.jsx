@@ -83,18 +83,8 @@ export default function AdminEditUserPage() {
             <div style={{ padding: 20 }}>
                 <h2>📝 Редагування користувача #{id}</h2>
                 <form onSubmit={handleSubmit}>
-                    <input
-                        required
-                        placeholder="Логін"
-                        value={form.username || ''}
-                        onChange={handleChange('username')}
-                    />
-                    <input
-                        placeholder="Email"
-                        type="email"
-                        value={form.email || ''}
-                        onChange={handleChange('email')}
-                    />
+                    <input required placeholder="Логін" value={form.username || ''} onChange={handleChange('username')} />
+                    <input placeholder="Email" type="email" value={form.email || ''} onChange={handleChange('email')} />
                     <select value={role} onChange={(e) => setRole(e.target.value)}>
                         <option value="PATIENT">Пацієнт</option>
                         <option value="DOCTOR">Лікар</option>
@@ -106,9 +96,17 @@ export default function AdminEditUserPage() {
                             <h4>Профіль пацієнта</h4>
                             <input placeholder="Ім’я" value={profile.first_name || ''} onChange={handleProfileChange('first_name')} />
                             <input placeholder="Прізвище" value={profile.last_name || ''} onChange={handleProfileChange('last_name')} />
+                            <input placeholder="По батькові" value={profile.middle_name || ''} onChange={handleProfileChange('middle_name')} />
                             <input placeholder="Номер телефону" value={profile.phone_number || ''} onChange={handleProfileChange('phone_number')} />
                             <input placeholder="Адреса" value={profile.address || ''} onChange={handleProfileChange('address')} />
                             <input placeholder="Номер медичної картки" value={profile.medical_card_number || ''} onChange={handleProfileChange('medical_card_number')} />
+                            <input placeholder="ІНН" value={profile.inn || ''} onChange={handleProfileChange('inn')} />
+                            <input type="date" value={profile.birth_date || ''} onChange={handleProfileChange('birth_date')} />
+                            <select value={profile.gender || ''} onChange={handleProfileChange('gender')}>
+                                <option value="">Стать</option>
+                                <option value="MALE">Чоловіча</option>
+                                <option value="FEMALE">Жіноча</option>
+                            </select>
                         </>
                     )}
 
@@ -117,14 +115,21 @@ export default function AdminEditUserPage() {
                             <h4>Профіль лікаря</h4>
                             <input placeholder="Ім’я" value={profile.first_name || ''} onChange={handleProfileChange('first_name')} />
                             <input placeholder="Прізвище" value={profile.last_name || ''} onChange={handleProfileChange('last_name')} />
+                            <input placeholder="По батькові" value={profile.middle_name || ''} onChange={handleProfileChange('middle_name')} />
                             <input placeholder="Спеціалізація" value={profile.specialization || ''} onChange={handleProfileChange('specialization')} />
+                            <input type="number" placeholder="Стаж (років)" value={profile.experience_years || ''} onChange={handleProfileChange('experience_years')} />
+                            <input placeholder="Номер ліцензії" value={profile.license_number || ''} onChange={handleProfileChange('license_number')} />
+                            <input type="date" placeholder="Дата видачі ліцензії" value={profile.license_issued || ''} onChange={handleProfileChange('license_issued')} />
+                            <input placeholder="Освіта" value={profile.education || ''} onChange={handleProfileChange('education')} />
+                            <input placeholder="Категорія" value={profile.category || ''} onChange={handleProfileChange('category')} />
                             <input placeholder="Телефон" value={profile.phone_number || ''} onChange={handleProfileChange('phone_number')} />
                             <input placeholder="Адреса" value={profile.address || ''} onChange={handleProfileChange('address')} />
+                            <input placeholder="Email" value={profile.email || ''} onChange={handleProfileChange('email')} />
                         </>
                     )}
 
                     <br />
-                    <button type="submit">Зберегти зміни</button>
+                    <button type="submit">💾 Зберегти зміни</button>
                 </form>
 
                 {message && <p>{message}</p>}

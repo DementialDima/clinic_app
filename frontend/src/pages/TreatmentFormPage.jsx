@@ -52,6 +52,11 @@ export default function TreatmentFormPage() {
         }
     };
 
+    const getFullName = (profile) => {
+        if (!profile) return '—';
+        return `${profile.last_name || ''} ${profile.first_name || ''} ${profile.middle_name || ''}`.trim();
+    };
+
     return (
         <>
             <AppHeader />
@@ -59,11 +64,16 @@ export default function TreatmentFormPage() {
                 <h2>🩺 Додати лікування до прийому #{appointmentId}</h2>
 
                 {appointment && (
-                    <p>
-                        <strong>Дата:</strong> {new Date(appointment.scheduled_time).toLocaleString()} <br />
-                        <strong>Пацієнт:</strong> {appointment.patient?.first_name} {appointment.patient?.last_name} <br />
-                        <strong>Лікар:</strong> {appointment.doctor?.first_name} {appointment.doctor?.last_name}
-                    </p>
+                    <div style={{ marginBottom: 20 }}>
+                        <p>
+                            <strong>📅 Дата:</strong> {new Date(appointment.scheduled_time).toLocaleString()}<br />
+                            <strong>🧑‍🦱 Пацієнт:</strong>{' '}
+                            {getFullName(appointment.patient?.patient_profile) || appointment.patient?.username || 'Невідомо'}<br />
+                            <strong>👨‍⚕️ Лікар:</strong>{' '}
+                            {getFullName(appointment.doctor?.doctor_profile) || appointment.doctor?.username || 'Невідомо'}<br />
+                            <strong>📄 Опис прийому:</strong> {appointment.description || 'Без опису'}
+                        </p>
+                    </div>
                 )}
 
                 <form onSubmit={handleSubmit}>

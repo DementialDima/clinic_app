@@ -3,12 +3,28 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+from django.utils.dateparse import parse_datetime
+from django.utils.timezone import make_aware
+from django.conf import settings
+from django.db.models import Q
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.pdfmetrics import registerFont
 from .models import Appointment, Treatment, User, DoctorProfile
 from .serializers import AppointmentSerializer, TreatmentSerializer, UserSerializer
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
 import io
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+import os
 
+# Пошук шрифту в каталозі, де розміщено views.py (наприклад: clinic_app/views.py)
+# 👇 Динамічний шлях до шрифту
+font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'DejaVuSans.ttf')
+
+# 👇 Реєстрація шрифту
+pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
 
 class AppointmentViewSet(viewsets.ModelViewSet):
     queryset = Appointment.objects.all()
@@ -20,8 +36,12 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
 
         patient_id = self.request.query_params.get('patient_id')
+        doctor_id = self.request.query_params.get('doctor_id')
+
         if patient_id and user.role in ['DOCTOR', 'ADMIN']:
             return queryset.filter(patient_id=patient_id)
+        if doctor_id and user.role in ['DOCTOR', 'ADMIN']:
+            return queryset.filter(doctor_id=doctor_id)
 
         if user.role == "DOCTOR":
             return queryset.filter(doctor=user)
@@ -31,20 +51,32 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         user = self.request.user
+        scheduled_time = parse_datetime(self.request.data.get('scheduled_time'))
+        end_time = parse_datetime(self.request.data.get('end_time'))
+        doctor_id = self.request.data.get('doctor')
+        patient_id = self.request.data.get('patient') or user.id
+
+        if not (scheduled_time and end_time and doctor_id):
+            raise serializers.ValidationError("Недостатньо даних для створення прийому.")
+
+        if settings.USE_TZ and scheduled_time.tzinfo is None:
+            scheduled_time = make_aware(scheduled_time)
+        if settings.USE_TZ and end_time.tzinfo is None:
+            end_time = make_aware(end_time)
+
+        overlapping = Appointment.objects.filter(
+            doctor_id=doctor_id,
+            scheduled_time__lt=end_time,
+            end_time__gt=scheduled_time,
+        ).exists()
+
+        if overlapping:
+            raise serializers.ValidationError("⛔ Лікар вже має прийом у цей час.")
 
         if user.role == "PATIENT":
-            doctor_id = self.request.data.get("doctor")
             serializer.save(patient=user, doctor_id=doctor_id)
-
         elif user.role == "ADMIN":
-            doctor_id = self.request.data.get("doctor")
-            patient_id = self.request.data.get("patient")
-
-            if not doctor_id or not patient_id:
-                raise serializers.ValidationError("Doctor and patient must be specified.")
-
-            serializer.save(doctor_id=doctor_id, patient_id=patient_id)
-
+            serializer.save(patient_id=patient_id, doctor_id=doctor_id)
         else:
             serializer.save()
 
@@ -101,32 +133,43 @@ def export_patient_history_pdf(request, patient_id):
     patient = get_object_or_404(User, id=patient_id)
     appointments = Appointment.objects.filter(patient=patient).select_related("treatment", "doctor")
 
+    # 🧠 Отримуємо ПІБ пацієнта
+    patient_profile = getattr(patient, 'patient_profile', None)
+    patient_full_name = f"{patient_profile.last_name} {patient_profile.first_name}" if patient_profile else patient.username
+
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer)
     y = 800
 
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(50, y, f"Історія лікування: {patient.username}")
+    p.setFont("DejaVuSans", 14)
+    p.drawString(50, y, f"Історія лікування: {patient_full_name}")
     y -= 30
 
     if not appointments:
         p.drawString(50, y, "Прийомів не знайдено.")
     else:
         for appt in appointments:
-            p.setFont("Helvetica", 11)
-            p.drawString(50, y, f"📅 {appt.scheduled_time.strftime('%Y-%m-%d %H:%M')} — {appt.doctor.username}")
+            p.setFont("DejaVuSans", 11)
+
+            doctor = appt.doctor
+            doctor_profile = getattr(doctor, 'doctor_profile', None)
+            doctor_name = f"{doctor_profile.last_name} {doctor_profile.first_name}" if doctor_profile else doctor.username
+
+            # Без смайликів ⛔📅🩺❌
+            p.drawString(50, y, f"{appt.scheduled_time.strftime('%Y-%m-%d %H:%M')} — {doctor_name}")
             y -= 15
             p.drawString(60, y, f"Опис: {appt.description}")
             y -= 15
-            if hasattr(appt, 'treatment'):
-                p.drawString(60, y, f"🩺 Діагноз: {appt.treatment.diagnosis}")
+
+            if hasattr(appt, 'treatment') and appt.treatment:
+                p.drawString(60, y, f"Діагноз: {appt.treatment.diagnosis}")
                 y -= 15
                 p.drawString(60, y, f"Процедура: {appt.treatment.procedure}")
                 y -= 15
                 p.drawString(60, y, f"Рекомендації: {appt.treatment.recommendations or '—'}")
                 y -= 25
             else:
-                p.drawString(60, y, "❌ Лікування не додано")
+                p.drawString(60, y, "Лікування не додано")
                 y -= 25
 
             if y < 100:
@@ -138,6 +181,18 @@ def export_patient_history_pdf(request, patient_id):
     buffer.seek(0)
 
     return HttpResponse(buffer, content_type='application/pdf')
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_patient_appointments(request, patient_id):
+    user = request.user
+    if user.role not in ['DOCTOR', 'ADMIN']:
+        return Response({"detail": "Access denied."}, status=403)
+
+    patient = get_object_or_404(User, id=patient_id)
+    appointments = Appointment.objects.filter(patient=patient).select_related("doctor", "treatment")
+    serializer = AppointmentSerializer(appointments, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['POST'])
@@ -224,3 +279,9 @@ def upload_doctor_photo(request):
     doctor_profile.save()
 
     return Response({"detail": "Photo uploaded successfully."})
+
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_user(request, user_id):
+    return Response({"detail": "Функція ще не реалізована."}, status=501)

@@ -27,12 +27,13 @@ export default function PatientHistoryPage() {
 
     const fetchAppointments = async () => {
         try {
-            const response = await axios.get(`/api/appointments/?patient_id=${id}`);
+            const response = await axios.get(`/api/patients/${id}/appointments/`);
             setAppointments(response.data);
         } catch (err) {
             console.error('❌ Помилка при завантаженні прийомів', err);
         }
     };
+
 
     const handleDownloadPDF = async () => {
         try {
@@ -74,7 +75,8 @@ export default function PatientHistoryPage() {
                     <ul style={{ paddingLeft: 0 }}>
                         {appointments.map((appt) => (
                             <li key={appt.id} style={{ marginBottom: 25, listStyle: 'none' }}>
-                                <b>{new Date(appt.scheduled_time).toLocaleString()}</b> — {appt.doctor?.first_name} {appt.doctor?.last_name}
+                                <b>{new Date(appt.scheduled_time).toLocaleString()}</b> — {appt.doctor?.doctor_profile?.first_name} {appt.doctor?.doctor_profile?.last_name}
+
                                 <br />
                                 <i>{appt.description}</i>
 

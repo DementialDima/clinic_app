@@ -18,6 +18,13 @@ import AdminAppointmentsPage from './pages/AdminAppointmentsPage';
 import TreatmentFormPage from './pages/TreatmentFormPage';
 import AdminStatsPage from './pages/AdminStatsPage';
 
+
+import '@fullcalendar/bootstrap5'; // <-- ЦЕ ВСЕ, що потрібно для стилів
+
+
+
+
+
 function App() {
     return (
         <BrowserRouter>
@@ -57,7 +64,7 @@ function App() {
                     }
                 />
 
-
+                <Route path="/patients/:id/history" element={<PatientHistoryPage />} />
                 <Route
                     path="/treatments/:treatmentId/edit"
                     element={

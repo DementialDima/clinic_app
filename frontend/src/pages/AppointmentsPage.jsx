@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import AppHeader from '../components/Header';
-import NewAppointmentForm from '../components/NewAppointmentForm';
 import AppointmentItem from '../components/AppointmentItem';
-import { isPatient, isDoctor, isAdmin, getUserRole } from '../api/auth';
+import { isPatient, isDoctor, isAdmin } from '../api/auth';
 import { Link } from 'react-router-dom';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -15,6 +14,9 @@ export default function AppointmentsPage() {
     const [appointments, setAppointments] = useState([]);
     const [selectedDate, setSelectedDate] = useState(null);
     const [filteredAppointments, setFilteredAppointments] = useState([]);
+    const [search, setSearch] = useState('');
+
+    const currentUser = JSON.parse(localStorage.getItem('user'));
 
     const fetchAppointments = () => {
         axios.get('/api/appointments/')
@@ -30,9 +32,10 @@ export default function AppointmentsPage() {
         const clicked = moment(date).startOf('day');
         setSelectedDate(clicked);
 
-        const filtered = appointments.filter(appt =>
-            moment(appt.scheduled_time).isSame(clicked, 'day')
-        );
+        const filtered = appointments.filter(appt => {
+            const apptDate = moment(appt.scheduled_time).startOf('day');
+            return apptDate.isSame(clicked, 'day');
+        });
         setFilteredAppointments(filtered);
     };
 
@@ -40,11 +43,26 @@ export default function AppointmentsPage() {
         appointments.map(a => [a.patient.id, a.patient])
     ).values()];
 
-    const events = appointments.map(appt => ({
-        title: `${appt.doctor?.first_name} (${appt.patient?.first_name})`,
-        start: new Date(appt.scheduled_time),
-        end: new Date(appt.end_time || appt.scheduled_time),
-    }));
+    const filteredPatients = uniquePatients.filter(p => {
+        const fullName = `${p.patient_profile?.last_name ?? ''} ${p.patient_profile?.first_name ?? ''} ${p.username}`.toLowerCase();
+        return fullName.includes(search.toLowerCase());
+    });
+
+    const events = appointments.map(appt => {
+        const doctorName = appt.doctor?.doctor_profile
+            ? `${appt.doctor.doctor_profile.first_name} ${appt.doctor.doctor_profile.last_name}`
+            : appt.doctor?.username || 'Лікар';
+
+        const patientName = appt.patient?.patient_profile
+            ? `${appt.patient.patient_profile.first_name} ${appt.patient.patient_profile.last_name}`
+            : appt.patient?.username || 'Пацієнт';
+
+        return {
+            title: `${doctorName} (${patientName})`,
+            start: new Date(appt.scheduled_time),
+            end: new Date(appt.end_time || appt.scheduled_time),
+        };
+    });
 
     return (
         <>
@@ -52,7 +70,6 @@ export default function AppointmentsPage() {
             <div style={{ padding: 20 }}>
                 <h2>Мої прийоми</h2>
 
-                {/* 📅 Календар прийомів */}
                 <Calendar
                     localizer={localizer}
                     events={events}
@@ -64,7 +81,6 @@ export default function AppointmentsPage() {
                 {selectedDate && isAdmin() && (
                     <>
                         <h3>📋 Прийоми на {selectedDate.format('YYYY-MM-DD')}</h3>
-
                         {filteredAppointments.length === 0 ? (
                             <p>Немає прийомів на цю дату.</p>
                         ) : (
@@ -80,8 +96,12 @@ export default function AppointmentsPage() {
                                 <tbody>
                                 {filteredAppointments.map((appt) => (
                                     <tr key={appt.id}>
-                                        <td>{appt.doctor?.last_name} {appt.doctor?.first_name}</td>
-                                        <td>{appt.patient?.last_name} {appt.patient?.first_name}</td>
+                                        <td>
+                                            {appt.doctor?.doctor_profile?.last_name} {appt.doctor?.doctor_profile?.first_name}
+                                        </td>
+                                        <td>
+                                            {appt.patient?.patient_profile?.last_name} {appt.patient?.patient_profile?.first_name}
+                                        </td>
                                         <td>{moment(appt.scheduled_time).format('HH:mm')}</td>
                                         <td>{appt.description}</td>
                                     </tr>
@@ -95,7 +115,6 @@ export default function AppointmentsPage() {
                 {selectedDate && isDoctor() && (
                     <>
                         <h3>📋 Прийоми на {selectedDate.format('YYYY-MM-DD')}</h3>
-
                         {filteredAppointments.length === 0 ? (
                             <p>Немає прийомів на цю дату.</p>
                         ) : (
@@ -111,7 +130,7 @@ export default function AppointmentsPage() {
                                 <tbody>
                                 {filteredAppointments.map((appt) => (
                                     <tr key={appt.id}>
-                                        <td>{appt.patient?.last_name} {appt.patient?.first_name}</td>
+                                        <td>{appt.patient?.patient_profile?.last_name} {appt.patient?.patient_profile?.first_name}</td>
                                         <td>{moment(appt.scheduled_time).format('HH:mm')}</td>
                                         <td>{appt.description}</td>
                                         <td>
@@ -133,22 +152,50 @@ export default function AppointmentsPage() {
                     </>
                 )}
 
-
-
-
-                {/* ➕ Пацієнт: створення прийому */}
-                {isPatient() && (
-                    <NewAppointmentForm onCreated={fetchAppointments} />
+                {selectedDate && isPatient() && (
+                    <>
+                        <h3>📋 Мої записи на {selectedDate.format('YYYY-MM-DD')}</h3>
+                        {filteredAppointments.filter(appt => Number(appt.patient?.id) === Number(currentUser?.id)).length === 0 ? (
+                            <p>Немає записів на цю дату.</p>
+                        ) : (
+                            <table border="1" cellPadding={6} style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                <tr>
+                                    <th>👨‍⚕️ Лікар</th>
+                                    <th>🕒 Година</th>
+                                    <th>📄 Опис</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {filteredAppointments
+                                    .filter(appt => Number(appt.patient?.id) === Number(currentUser?.id))
+                                    .map(appt => (
+                                        <tr key={appt.id}>
+                                            <td>{appt.doctor?.doctor_profile?.last_name} {appt.doctor?.doctor_profile?.first_name}</td>
+                                            <td>{moment(appt.scheduled_time).format('HH:mm')}</td>
+                                            <td>{appt.description}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </>
                 )}
 
-                {/* 👨‍⚕️ Лікар: список пацієнтів */}
                 {isDoctor() && (
                     <>
                         <h3>Пацієнти:</h3>
+                        <input
+                            type="text"
+                            placeholder="🔍 Пошук пацієнта..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            style={{ padding: 8, width: '100%', marginBottom: 10 }}
+                        />
                         <ul>
-                            {uniquePatients.map(patient => (
+                            {filteredPatients.map(patient => (
                                 <li key={patient.id}>
-                                    {patient.username} —
+                                    {patient.patient_profile?.last_name} {patient.patient_profile?.first_name} ({patient.username})
                                     <Link to={`/patients/${patient.id}/history`} style={{ marginLeft: 10 }}>
                                         Переглянути історію
                                     </Link>
@@ -158,7 +205,6 @@ export default function AppointmentsPage() {
                     </>
                 )}
 
-                {/* 🧑‍💼 Адмін */}
                 {isAdmin() && (
                     <p>🧑‍💼 Ви маєте адміністративний доступ</p>
                 )}

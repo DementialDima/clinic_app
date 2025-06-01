@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import AppHeader from '../components/Header';
 import { getUserRole } from '../api/auth';
 import { useNavigate } from 'react-router-dom';
 
-export default function AdminUserListPage() {
+const ROLES = ['ALL', 'ADMIN', 'DOCTOR', 'PATIENT'];
+
+export default function AdminUserList() {
     const [users, setUsers] = useState([]);
-    const [filtered, setFiltered] = useState([]);
+    const [filteredUsers, setFilteredUsers] = useState([]);
     const [search, setSearch] = useState('');
     const [roleFilter, setRoleFilter] = useState('ALL');
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -23,136 +23,129 @@ export default function AdminUserListPage() {
 
     const fetchUsers = async () => {
         try {
-            const response = await axios.get('/api/users/');
-            setUsers(response.data);
-            setFiltered(response.data);
+            const res = await axios.get('/api/users/');
+            setUsers(res.data);
+            setFilteredUsers(res.data);
         } catch (err) {
-            console.error('Помилка при завантаженні користувачів', err);
+            console.error(err);
         }
     };
 
     const handleSearch = (e) => {
         const value = e.target.value.toLowerCase();
         setSearch(value);
-        applyFilters(value, roleFilter);
+        filterUsers(value, roleFilter);
     };
 
-    const handleRoleChange = (e) => {
+    const handleRoleFilter = (e) => {
         const value = e.target.value;
         setRoleFilter(value);
-        applyFilters(search, value);
+        filterUsers(search, value);
     };
 
-    const applyFilters = (searchValue, roleValue) => {
-        let result = [...users];
+    const filterUsers = (searchTerm, role) => {
+        const filtered = users.filter((user) => {
+            const fullText = [
+                user.username,
+                user.email,
+                user.role,
+                user?.doctor_profile?.first_name,
+                user?.doctor_profile?.last_name,
+                user?.doctor_profile?.middle_name,
+                user?.patient_profile?.first_name,
+                user?.patient_profile?.last_name,
+                user?.patient_profile?.middle_name,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
 
-        if (roleValue !== 'ALL') {
-            result = result.filter(user => user.role === roleValue);
-        }
+            const roleMatch = role === 'ALL' || user.role === role;
+            const searchMatch = fullText.includes(searchTerm);
 
-        result = result.filter(user => {
-            const profile = user.patient_profile || user.doctor_profile || {};
-            return (
-                user.username?.toLowerCase().includes(searchValue) ||
-                user.email?.toLowerCase().includes(searchValue) ||
-                user.role?.toLowerCase().includes(searchValue) ||
-                profile.first_name?.toLowerCase().includes(searchValue) ||
-                profile.last_name?.toLowerCase().includes(searchValue) ||
-                profile.phone_number?.toLowerCase().includes(searchValue) ||
-                profile.address?.toLowerCase().includes(searchValue)
-            );
+            return roleMatch && searchMatch;
         });
 
-        setFiltered(result);
+        setFilteredUsers(filtered);
     };
 
-    const handleSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
+    const handleDelete = async (userId) => {
+        if (!window.confirm('❗ Ви впевнені, що хочете видалити цього користувача?')) return;
+
+        try {
+            await axios.delete(`/api/users/${userId}/`);
+            fetchUsers();
+        } catch (err) {
+            alert('❌ Помилка при видаленні користувача');
+            console.error(err);
         }
-        setSortConfig({ key, direction });
-
-        const sorted = [...filtered].sort((a, b) => {
-            const aValue = getSortValue(a, key);
-            const bValue = getSortValue(b, key);
-
-            if (aValue < bValue) return direction === 'asc' ? -1 : 1;
-            if (aValue > bValue) return direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-
-        setFiltered(sorted);
     };
-
-    const getSortValue = (user, key) => {
-        const profile = user.patient_profile || user.doctor_profile || {};
-        if (key === 'username' || key === 'email' || key === 'role') return user[key] || '';
-        return profile[key] || '';
-    };
-
-    const getField = (profile, field) => profile?.[field] || '—';
 
     return (
         <>
             <AppHeader />
             <div style={{ padding: 20 }}>
-                <h2>👥 Усі користувачі</h2>
+                <h2>👥 Адміністративна панель — Користувачі</h2>
 
-                <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                <div style={{ marginBottom: 10 }}>
                     <input
                         type="text"
-                        placeholder="🔍 Пошук по імені, прізвищу, логіну, телефону..."
+                        placeholder="🔍 Пошук по всім полям..."
                         value={search}
                         onChange={handleSearch}
-                        style={{ flexGrow: 1, padding: 8 }}
+                        style={{ padding: 6, width: '60%', marginRight: 10 }}
                     />
-                    <select value={roleFilter} onChange={handleRoleChange} style={{ padding: 8 }}>
-                        <option value="ALL">Усі ролі</option>
-                        <option value="ADMIN">Адмін</option>
-                        <option value="DOCTOR">Лікар</option>
-                        <option value="PATIENT">Пацієнт</option>
+                    <select value={roleFilter} onChange={handleRoleFilter}>
+                        {ROLES.map((r) => (
+                            <option key={r} value={r}>
+                                {r === 'ALL' ? 'Усі ролі' : r}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
-                <table border="1" cellPadding="8" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table border="1" cellPadding={6} style={{ width: '100%', marginTop: 10, borderCollapse: 'collapse' }}>
                     <thead>
                     <tr>
-                        <th onClick={() => handleSort('id')}>ID</th>
-                        <th onClick={() => handleSort('username')}>Логін</th>
-                        <th onClick={() => handleSort('role')}>Роль</th>
-                        <th onClick={() => handleSort('first_name')}>Ім’я</th>
-                        <th onClick={() => handleSort('last_name')}>Прізвище</th>
-                        <th onClick={() => handleSort('phone_number')}>Телефон</th>
-                        <th onClick={() => handleSort('address')}>Адреса</th>
-                        <th onClick={() => handleSort('email')}>Email</th>
+                        <th>ID</th>
+                        <th>Ім’я</th>
+                        <th>Прізвище</th>
+                        <th>По-батькові</th>
+                        <th>Логін</th>
+                        <th>Email</th>
+                        <th>Роль</th>
                         <th>Дії</th>
                     </tr>
                     </thead>
                     <tbody>
-                    {filtered.map(user => {
-                        const profile = user.patient_profile || user.doctor_profile || {};
+                    {filteredUsers.map((user) => {
+                        const profile = user.role === 'DOCTOR' ? user.doctor_profile : user.patient_profile;
                         return (
                             <tr key={user.id}>
                                 <td>{user.id}</td>
+                                <td>{profile?.first_name || '—'}</td>
+                                <td>{profile?.last_name || '—'}</td>
+                                <td>{profile?.middle_name || '—'}</td>
                                 <td>{user.username}</td>
-                                <td>{user.role}</td>
-                                <td>{getField(profile, 'first_name')}</td>
-                                <td>{getField(profile, 'last_name')}</td>
-                                <td>{getField(profile, 'phone_number')}</td>
-                                <td>{getField(profile, 'address')}</td>
                                 <td>{user.email || '—'}</td>
+                                <td>{user.role}</td>
                                 <td>
                                     <button onClick={() => navigate(`/admin/users/${user.id}/edit`)}>
-                                        Редагувати
+                                        ✏️
+                                    </button>
+                                    <button
+                                        style={{ marginLeft: 5, color: 'red' }}
+                                        onClick={() => handleDelete(user.id)}
+                                    >
+                                        🗑
                                     </button>
                                 </td>
                             </tr>
                         );
                     })}
-                    {filtered.length === 0 && (
+                    {filteredUsers.length === 0 && (
                         <tr>
-                            <td colSpan="9">Нічого не знайдено.</td>
+                            <td colSpan="8">Немає користувачів за заданими критеріями</td>
                         </tr>
                     )}
                     </tbody>
